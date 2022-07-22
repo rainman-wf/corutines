@@ -1,9 +1,6 @@
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import model.Author
 import model.Comment
 import model.Post
@@ -26,16 +23,18 @@ fun main() {
         launch {
             try {
                 val posts = getPosts(client)
-                    .map {
-                        PostModel(it, getAuthors(client, it.authorId), getComments(client, it.id))
-                    }
+                    .map { post ->
+                        async {
+                            PostModel(post, getAuthors(client, post.authorId), getComments(client, post.id))
+                        }
+                    }.awaitAll()
                 println(posts)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
     }
-    Thread.sleep(1000L)
+    Thread.sleep(30_000L)
 }
 
 suspend fun OkHttpClient.apiCall(url: String): Response {
@@ -73,10 +72,10 @@ suspend fun <T> makeRequest(url: String, client: OkHttpClient, typeToken: TypeTo
     }
 
 suspend fun getPosts(client: OkHttpClient): List<Post> =
-    makeRequest("$BASE_URL/api/posts", client, object : TypeToken<List<Post>>() {})
+    makeRequest("$BASE_URL/api/slow/posts", client, object : TypeToken<List<Post>>() {})
 
 suspend fun getComments(client: OkHttpClient, id: Long): List<Comment> =
-    makeRequest("$BASE_URL/api/posts/$id/comments", client, object : TypeToken<List<Comment>>() {})
+    makeRequest("$BASE_URL/api/slow/posts/$id/comments", client, object : TypeToken<List<Comment>>() {})
 
 suspend fun getAuthors(client: OkHttpClient, id: Long): Author =
-    makeRequest("$BASE_URL/api/authors/$id", client, object : TypeToken<Author>() {})
+    makeRequest("$BASE_URL/api/slow/authors/$id", client, object : TypeToken<Author>() {})
